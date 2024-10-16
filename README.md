@@ -12,6 +12,6 @@ Loads two objects : an (n x d) matrix of observations and a (d x 2) matrix of co
 Daily precipitation amounts in millimeters for June, July, August of the years 1962-2012 for d = 44 stations around Zurich, Switzerland. The dataset (from MétéoSuisse) has been analyzed in Thibaud & Opitz (2015) and Cooley & Thibaud (2O19), among others. 
 
 # Temp.RData
-Loads three objects:  an (n x d) matrix of observations, a (d x 2) matrix of coordinates, and a vector containing a covariate derived from the atmospheric CO2 concerntration
+Loads three objects:  an (n x d) matrix of observations, a (d x 2) matrix of coordinates, and a vector containing a covariate derived from the atmospheric CO2 concentration.
 
 Annual maxima of daily maximum temperatures for the years 1950-2018 for d = 79 stations around Belgium. Derived from the homogenized E-OBS dataset E-OBS v19.0eHOM data, made available in the supplementary material of Auld et al. (2023).
