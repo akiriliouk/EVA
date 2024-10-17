@@ -4,7 +4,7 @@ Code accompanying the Short Course  "An introduction to extreme-value analysis, 
 # Wind.RData
 Loads three objects : an (n x d) matrix of observations, a (d x 2) matrix of coordinates and a vector of dates
 
-Daily maximal speeds of wind gusts, measured in km/h, observed at d = 35 weather stations in the Netherlands during extended winter (October–March), from October 2001 up to and including March 2022. The data set is freely available from the Royal Netherlands Meteorological Institute (KNMI), https://climexp.knmi.nl/, and has been analyzed in Kiriliouk & Zhou (2024).
+Daily maximal speeds of wind gusts, measured in tens of meters per hour (to do: multiply by 100), observed at d = 35 weather stations in the Netherlands during extended winter (October–March), from October 2001 up to and including March 2022. The data set is freely available from the Royal Netherlands Meteorological Institute (KNMI), https://climexp.knmi.nl/, and has been analyzed in Kiriliouk & Zhou (2024).
 
 # Rain.RData
 Loads three objects : an (n x d) matrix of observations, a (d x 2) matrix of coordinates (in kms, to be removed) and a vector of dates
