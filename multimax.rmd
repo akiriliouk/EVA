@@ -3,6 +3,12 @@ title: "Multivariate maxima"
 author: "Anna Kiriliouk and Johan Segers"
 date: "UCLouvain and KU Leuven, October 2024"
 output: html_document
+header-includes:
+  - \usepackage[utf8]{inputenc}
+  - \newcommand{\rbr}[1]{\left(#1\right)}
+  - \newcommand{\cbr}[1]{\left\{#1\right\}}
+  - \newcommand{\pr}{\operatorname{\mathsf{P}}}
+  - \newcommand{\expec}{\operatorname{\mathsf{E}}}
 ---
 
 ```{r setup, include=FALSE}
@@ -11,8 +17,38 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r prelim}
 library(mev)
+library(graphicalExtremes)
 load("Wind.RData")
 ```
+
+# Things to show and explain
+
+## Objects to introduce
+
+Dependence functions: $\ell$, $A$
+
+Dependence coefficients: $\theta$, $\chi$
+
+Measures: angular measure $H$, exponent measure (?)
+
+Much more--what to choose \ldots?
+
+
+
+## Nonparametric inference
+
+- Bivariate Pickands dependence function
+- Calculate pairwise $\chi$
+- test of max-stability (?)
+- Angular measure (also for multivariate maxima?)
+
+## Parametric inference
+
+- Fit parametric models
+- Simulate
+
+
+# Playground
 
 Sample size and number of variables:
 
@@ -26,10 +62,68 @@ Fitting a univariate GEV distribution to the first station:
 fit.gev(Wind[,1], show=TRUE)
 ```
 
+Using `mev` package, for one pair of variables:
+
 ```{r}
-chi <- taildep(data = Wind, depmeas = "chi", u = 0.9)
+chi <- taildep(data = Wind[,1:2], depmeas = "chi", method = list(chi = "emp"))
 chi
 ```
+
+Using `chi_hat()` from `graphicalExtremes` package, giving a $d \times d$ matrix:
+
+```{r}
+chi_hat <- emp_chi(data = Wind, p = .8)
+```
+
+The extremal correlation $\chi \in [0, 1]$, the extremal coefficient $\theta \in [1,2]$, the stdf $\ell : [0, \infty)^2 \to [0, \infty)$ and the Pdf $A : [0,1] \to [1/2,1]$ are related by
+\[
+  \chi = 2 - \theta \quad \text{and} \quad 
+  \theta = \ell(1,1) = 2 A(1/2).
+\]
+For a bivariate max-stable random vector $(Z_1,Z_2)$, with unit-Fréchet margins, we have
+\[
+  \pr \rbr{ 1/Z_1 > x, 1/Z_2 > y }
+  = \exp \cbr{ -(x+y) \, A \rbr{\frac{y}{x+y}}}, \qquad x,y > 0.
+\]
+It follows that
+\[
+  \pr \cbr{ 1/\max(Z_1,Z_2) > x } = \exp \cbr{-2x A(1/2)} = \exp(-\theta x), 
+  \qquad x > 0
+\]
+and thus 
+\[ 
+  \expec \cbr{\min(1/Z_1,1/Z_2)} = \expec \cbr{1/\max(Z_1,Z_2)} = 1 / \theta. 
+\]
+Given $d$-variate block maxima data $M_t = (M_{t1},\ldots,M_{td})$ for $t = 1,\ldots,n$, we can thus estimate these quantities for variables $i,j \in \cbr{1,\ldots,d}$ by
+\begin{align*}
+  \hat{\chi}_{ij} &= 2 - \hat{\theta}_{ij} \\
+  \frac{1}{\hat{\theta}_{ij}} 
+  &= \frac{1}{n} \sum_{t=1}^n \min \cbr{ \hat{E}_{ti}, \hat{E}_{tj} }, \\
+  \hat{E}_{ti} &= 1/\hat{Z}_{ti} = - \log \hat{F}_i(M_{ti}),
+\end{align*}
+where $\hat{F}_i$ is an estimate (parametric or non-parametric) of the marginal cdf in margin $i$.
+
+
+```{r}
+emp_chi_max <- function(data) {
+  d <- ncol(data)
+  if (d < 2) return(1) # data are univariate
+  n <- nrow(data)
+  rankdata <- apply(data, 2, rank)
+  Z <- log(n+1) - log(rankdata)
+  chi_hat <- diag(d)
+  for (i in 1:(d-1)) {
+    for (j in (i+1):d) {
+      chi_hat[i,j] <- chi_hat[j,i] <- 2-1/mean(pmin(Z[,i], Z[,j]))
+    }
+  }
+  return(chi_hat)
+}
+chi_hat <- emp_chi_max(data = Wind)
+chi_hat[1:5,1:5]
+```
+
+
 
 Transform observations component-wise to ranks, transform to unit-Fréchet margins, and estimate 
 
