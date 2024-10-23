@@ -1,0 +1,87 @@
+---
+title: "Exercice session 1: univariate extremes"
+author: "Anna Kiriliouk and Johan Segers"
+date: "UCLouvain, October 2024"
+output: html_document
+header-includes:
+  - \usepackage[utf8]{inputenc}
+  - \usepackage{mathtools}
+  - \newcommand{\rbr}[1]{\left(#1\right)}
+  - \newcommand{\cbr}[1]{\left\{#1\right\}}
+  - \newcommand{\pr}{\operatorname{\mathsf{P}}}
+  - \newcommand{\expec}{\operatorname{\mathsf{E}}}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Exercise 1. 
+
+For this first exercise, you'll need to install the `ismev` package first using `install.packages("ismev")`. Next, load the package and the data. The `data` vector contains daily maximal speeds of wind gusts, measured in kilometers per hour in Eindhoven (the Netherlands) during extended winter (October–March), from October 2001 up to and including March 2022. 
+
+```{r message = FALSE}
+library(ismev)
+load("Ex1uni.RData")
+```
+
+a. Use the following command to select monthly maxima. Then also select the yearly maxima (one for each extended winter season spanning from October to March).
+
+```{r}
+monthly <- as.vector(tapply(data, paste(times$year,times$mon), max))
+yearly <- apply(matrix(monthly,ncol = 21, nrow = 6), 2, max)
+```
+
+b. Plot the two datasets. Do they look stationary?
+
+```{r}
+plot(monthly, ylim = c(35,130))
+plot(yearly, ylim = c(35,130))
+```
+
+c. Fit a GEV distribution to both the monthly and the yearly maxima and check the goodness-of-fit plots. You'll need to use the functions `gev.fit`, and `gev.diag`. Which one of the two would you use?
+
+```{r}
+gmonthly <- gev.fit(monthly, show = FALSE)
+gyearly <- gev.fit(yearly, show = FALSE)
+gev.diag(gmonthly)
+gev.diag(gyearly)
+# I would go with the monthly maxima: the fit seems satisfactory and confidence intervals would be lower. 
+```
+
+d. For the chosen data, give the GEV parameter estimates with 95 \% confidence intervals. Is the data bounded-tailed, light-tailed or heavy-tailed? 
+```{r}
+round(cbind(gmonthly$mle - 1.96*gmonthly$se, gmonthly$mle, gmonthly$mle + 1.96*gmonthly$se),2)
+round(cbind(gyearly$mle - 1.96*gyearly$se, gyearly$mle, gyearly$mle + 1.96*gyearly$se),2)
+# Light-tailed, in the Gumbel domain of attraction
+```
+
+e. Using the function `gum.fit`, estimate the parameters of a GEV distribution with $\xi = 0$. Decide whether such a model suffices based on a likelihood ratio test. *Reminder: if $L(\xi,\sigma,\mu)$ denotes the log-likelihood function, then $2 \left\{L(\xi,\sigma,\mu) - L(0,\sigma,\mu)\right\} \rightarrow \chi^2_1$.*
+
+```{r}
+gummonthly <- gum.fit(monthly, show = FALSE)
+gumyearly <- gum.fit(yearly, show = FALSE)
+gum.diag(gummonthly)
+gum.diag(gumyearly)
+(Dmonthly <- 2*(gummonthly$nllh - gmonthly$nllh))
+(Dyearly <- 2*(gumyearly$nllh - gyearly$nllh))
+qchisq(0.95, df = 1)
+```
+
+f. The return-level plot returned by `gum.diag` is not very clear. Using the formula seen this morning (slide nr),
+calculate the 10-year and the 1000-year return levels. Confidence intervals can be obtained using the delta method: if $\xi = 0$, $\nabla x_p^T = (1, - \log(-\log(1-p)))$, and the covariance matrix of $(\hat{\mu},\hat{\xi})$ can be obtained from the output of `gum.fit`. Is there a big difference between the 10-year and the 1000-year return levels? Is this surprising?
+
+```{r}
+retLevGum <- function(pars, cov, p){
+  rl <- pars[1] - pars[2]*log(-log(1-p))
+  grd <- c(1, -log(-log(1-p)))
+  se <- sqrt(t(grd) %*% cov %*% grd)
+  return(c(rl - 1.96*se, rl, rl + 1.96*se))
+}
+retLevGum(gummonthly$mle, gummonthly$cov, (1/10)/6) #convert to yearly
+retLevGum(gummonthly$mle, gummonthly$cov, (1/1000)/6) #convert to yearly
+retLevGum(gumyearly$mle, gumyearly$cov, 1/10)
+retLevGum(gumyearly$mle, gumyearly$cov, 1/1000)
+```
+
+
