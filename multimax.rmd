@@ -5,10 +5,31 @@ date: "UCLouvain and KU Leuven, October 2024"
 output: html_document
 header-includes:
   - \usepackage[utf8]{inputenc}
+  - \usepackage{bm}
   - \newcommand{\rbr}[1]{\left(#1\right)}
   - \newcommand{\cbr}[1]{\left\{#1\right\}}
   - \newcommand{\pr}{\operatorname{\mathsf{P}}}
   - \newcommand{\expec}{\operatorname{\mathsf{E}}}
+  - \newcommand{\sig}{\sigma}
+  - \newcommand{\evi}{\xi}
+  - \newcommand{\bevi}{\bm{\evi}}
+  - \newcommand{\stdf}{L}%{\ell}
+  - \newcommand{\Pick}{A}
+  - \newcommand{\exCoef}{\theta}
+  - \newcommand{\expms}{\Lambda}
+  - \newcommand{\angms}{\varPhi}
+  - \newcommand{\angmspdf}{\phi}
+  - \newcommand{\hstdf}{\widehat{\stdf}}
+  - \newcommand{\hangms}{\widehat{\angms}}
+  - \newcommand{\hbP}{\widehat{\bP}}
+  - \newcommand{\hP}{\widehat{P}}
+  - \newcommand{\hR}{\widehat{R}}
+  - \newcommand{\hF}{\widehat{F}}
+  - \newcommand{\hFj}{\widehat{F}_{j}}
+  - \newcommand{\rank}{\operatorname{Rnk}}
+  - \newcommand{\hU}{\widehat{U}}
+  - \newcommand{\hpr}{\widehat{\pr}}
+
 ---
 
 ```{r setup, include=FALSE}
@@ -17,9 +38,17 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r prelim}
 library(mev)
+library(copula) # extreme-value copulas
 library(graphicalExtremes)
+library(maps)
 load("Wind.RData")
+load("Temp.RData")
+Temp <- as.data.frame(Temp)
 ```
+
+ 
+----------
+
 
 # Things to show and explain
 
@@ -48,7 +77,54 @@ Much more--what to choose \ldots?
 - Simulate
 
 
-# Playground
+# Maps
+
+## Temperature data in Belgium
+
+Plotting a map of Belgium with the grid points for which we have temperature data:
+
+```{r}
+map("world", xlim = c(2,6.5), ylim = c(49,51.5)) 
+# points(cbind(TempCoord[,"longitude"], TempCoord[,"latitude"]), col = "red")
+text(cbind(TempCoord[,"longitude"], TempCoord[,"latitude"]))
+```
+
+Closest stations:
+- Louvain-la-Neuve: around 30
+- Leuven: around 20
+
+## Wind data in the Netherlands
+
+Plotting a map of the Netherlands with the weather stations for which we have wind data:
+
+```{r}
+map("world", xlim = c(3.2,7.5), ylim = c(50.75,54)) 
+points(WindCoord, col = "red")
+```
+
+# Some elementary univariate analysis 
+
+## Temperature data
+
+The temperature data are annual maxima, so it makes sense to fit a GEV distribution to it. We do so for every grid point. The number of observations (rows) and number of grid points (columns):
+
+```{r}
+dim(Temp)
+```
+
+Fitting the GEV distribution to the annual temperature maxima in each grid point:
+
+```{r}
+# helper function to apply fit.gev to each column in a data.frame
+fit.gev.vec <- function(data) {
+  t(apply(data, 2, function(x) fit.gev(x)$estimate))
+}
+# fit GEV distribution to each 
+TempGEVestim <- fit.gev.vec(Temp)
+summary(TempGEVestim)
+```
+
+## Wind data
 
 Sample size and number of variables:
 
@@ -62,6 +138,147 @@ Fitting a univariate GEV distribution to the first station:
 fit.gev(Wind[,1], show=TRUE)
 ```
 
+# Nonparametric multivariate analysis
+
+## Plotting bivariate data
+
+```{r Temp.locations}
+cities <- as.data.frame(rbind(
+  c("Middelkerke", 1),
+  c("Leuven", 20),
+  c("LLN", 30),
+  c("Virton", 54)
+))
+names(cities) <- c("name", "ID")
+cities$ID <- as.integer(cities$ID)
+TempPart <- Temp[,cities$ID]
+names(TempPart) <- cities$name
+map("world", xlim = c(2,6.5), ylim = c(49,51.5)) 
+text(TempCoord[cities$ID,], col = "red", labels = cities$name)
+```
+
+```{r Tem.scatter}
+plot(TempPart, main = "Maximum temperatures in Belgium, 1950—2018")
+```
+
+```{r Temp.GEV1}
+Temp.GEV1 <- t(apply(TempPart, 2, function(x) fit.gev(x)$estimate))
+Temp.GEV1
+```
+
+```{r}
+for (city in cities$name) {
+  hist(TempPart[,city], freq = FALSE, 
+     xlab = "Annual maximum temperature", 
+     main = paste("Annual maximum temperatures at", city, "(1950—2014)"))
+  curve(dgev(x, 
+             loc = Temp.GEV1[city, "loc"], 
+             scale = Temp.GEV1[city, "scale"], 
+             shape = Temp.GEV1[city, "shape"]), 
+        add = TRUE, col = "red")
+  legend(x = "topleft", 
+         col = c("black", "red"), 
+         lty = "solid",
+         legend = c("histogram", "GEV"))
+}
+```
+
+## Pickands dependence functions
+
+```{r}
+for (i in 1:(nrow(cities)-1)) {
+  for (j in (i+1):nrow(cities)) {
+    curve(An.biv(TempPart[,c(i,j)], x, estimator = "CFG"),
+          xlab = "w", ylab = "A(w)",
+          main = paste("Pickands dependence function A,", 
+                       cities$name[i], "vs", cities$name[j]),
+          ylim = c(0.5,1),
+          col = "blue", lwd = 2)
+    lines(c(0, 0.5, 1), c(1,0.5,1), col = "gray")
+    lines(c(0,1),c(1,1), col = "gray")
+    Ahalf <- An.biv(TempPart[,c(i,j)], w=0.5)
+    lines(c(0.5,0.5), c(1, Ahalf), lty = "dotted", lwd = 2)
+    text(x = 0.5, y = (Ahalf+1)/2, 
+         labels = paste("2{1-A(.5)} =", round(2*(1-Ahalf),3)),
+         pos = 4
+         )
+  }
+}
+```
+
+## Testing max-stability
+
+Based on Kojadinovic and Yan (2010):
+
+```{r}
+ncitypairs <- nrow(cities) * (nrow(cities)-1) / 2
+testoutA <- data.frame(matrix(0, nrow = ncitypairs, ncol = 4))
+names(testoutA) <- c("city1", "city2", "statistic", "p.value")
+testoutA$city1 <- as.character(testout$city1)
+testoutA$city2 <- as.character(testout$city2)
+
+counter <- 0
+for (i in 1:(nrow(cities)-1)) {
+  for (j in (i+1):nrow(cities)) {
+    counter <- counter +1
+    testoutA$city1[counter] <- cities$name[i]
+    testoutA$city2[counter] <- cities$name[j]
+    testoutij <- evTestA(x = as.matrix(TempPart[,c(i,j)]), 
+                         derivatives = "Cn")
+    testoutA$statistic[counter] <- testoutij$statistic
+    testoutA$p.value[counter] <- testoutij$p.value
+  }
+}
+rm(counter, testoutij)
+testoutA
+```
+
+Other tests implemented in `copula` package: `evTestK` and `evTestC`.
+
+## Parameter estimation
+
+Fitting a Gumbel copula (= logistic model) by maximum pseudo-likelihood, using ranks, and comparing the obtained Pickands dependence functions:
+
+```{r}
+for (i in 1:(nrow(cities)-1)) {
+  for (j in (i+1):nrow(cities)) {
+    estimtmp <- fitCopula(copula = gumbelCopula(),
+                          data = pobs(TempPart[, c(i,j)]))
+    alpha <- summary(estimtmp)$coefficients[,"Estimate"]
+    
+    curve(An.biv(TempPart[,c(i,j)], x, estimator = "CFG"),
+          xlab = "w", ylab = "A(w)",
+          main = paste("Pickands dependence function A,", 
+                       cities$name[i], "vs", cities$name[j]),
+          ylim = c(0.5,1),
+          col = "blue", lwd = 2)
+    curve(A(gumbelCopula(param = alpha), x), add = TRUE, 
+          col = "red", lwd = 2)
+    lines(c(0, 0.5, 1), c(1,0.5,1), col = "gray")
+    lines(c(0,1),c(1,1), col = "gray")
+    legend(x = "top", lty = "solid", lwd = 2, col = c("blue", "red"),
+           legend = c("nonparametric: CFG", 
+                      paste("parametric: logistic, rho =", round(1/alpha,3))))
+  }
+}
+rm(i,j,estimtmp,alpha)
+```
+
+## Testing a parametric model for the GEV dependence structure
+
+Testing the Gumbel copula (= logistic model) based on pseudo-observations, estimating copula parameter with maximum pseudo-likelihood:
+
+```{r goodness.of.fit, eval=FALSE}
+# Code takes some time to run; set eval=FALSE to execute it
+gofCopula(copula = gumbelCopula(),
+          x = as.matrix(TempPart[,c("Leuven", "Virton")]),
+          ties = TRUE,
+          verbose = FALSE)
+```
+
+
+## Dependence coefficients
+
 Using `mev` package, for one pair of variables:
 
 ```{r}
@@ -69,7 +286,7 @@ chi <- taildep(data = Wind[,1:2], depmeas = "chi", method = list(chi = "emp"))
 chi
 ```
 
-Using `chi_hat()` from `graphicalExtremes` package, giving a $d \times d$ matrix:
+Using `emp_chi()` from `graphicalExtremes` package, giving a $d \times d$ matrix:
 
 ```{r}
 chi_hat <- emp_chi(data = Wind, p = .8)
