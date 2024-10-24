@@ -15,7 +15,7 @@ header-includes:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, fig.show='hide', results = 'hide')
+knitr::opts_chunk$set(echo = TRUE, fig.show='hide')
 ```
 
 You'll need to install and load the `ismev` package first using `install.packages("ismev")` and `library(ismev)`.

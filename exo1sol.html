@@ -376,43 +376,110 @@ yearly maxima (careful: one for each extended winter season, spanning
 from October to March).</li>
 </ol>
 <pre class="r"><code>monthly &lt;- as.vector(tapply(data, paste(times$year,times$mon), max))</code></pre>
+<pre class="r"><code>yearly &lt;- apply(matrix(monthly,ncol = 21, nrow = 6), 2, max)</code></pre>
 <ol start="2" style="list-style-type: lower-alpha">
-<li><p>Plot the two datasets. Do they look stationary?</p></li>
-<li><p>Fit a GEV distribution to both the monthly and the yearly maxima
-and check the goodness-of-fit plots. You’ll need to use the functions
+<li>Plot the two datasets. Do they look stationary?</li>
+</ol>
+<pre class="r"><code>plot(monthly, ylim = c(35,130))</code></pre>
+<pre class="r"><code>plot(yearly, ylim = c(35,130))</code></pre>
+<pre class="r"><code># The data looks stationary.</code></pre>
+<ol start="3" style="list-style-type: lower-alpha">
+<li>Fit a GEV distribution to both the monthly and the yearly maxima and
+check the goodness-of-fit plots. You’ll need to use the functions
 <code>gev.fit</code> and <code>gev.diag</code>. Would you choose to
-continue with the monthly or the yearly maxima?</p></li>
-<li><p>For the chosen data (monthly or weekly), give the GEV parameter
+continue with the monthly or the yearly maxima?</li>
+</ol>
+<pre class="r"><code>gmonthly &lt;- gev.fit(monthly, show = FALSE)
+gyearly &lt;- gev.fit(yearly, show = FALSE)
+gev.diag(gmonthly)</code></pre>
+<pre class="r"><code>gev.diag(gyearly)</code></pre>
+<pre class="r"><code># I would go with the monthly maxima: the fit seems satisfactory and confidence intervals would be narrower. </code></pre>
+<ol start="4" style="list-style-type: lower-alpha">
+<li>For the chosen data (monthly or weekly), give the GEV parameter
 estimates with 95 % confidence intervals. Is the data bounded-tailed,
-light-tailed or heavy-tailed?</p></li>
-<li><p>Using the function <code>gum.fit</code>, estimate the parameters
-of a GEV distribution with <span class="math inline">\(\xi = 0\)</span>.
+light-tailed or heavy-tailed?</li>
+</ol>
+<pre class="r"><code>round(cbind(gmonthly$mle - 1.96*gmonthly$se, gmonthly$mle, gmonthly$mle + 1.96*gmonthly$se),2)</code></pre>
+<pre><code>##       [,1]  [,2]  [,3]
+## [1,] 62.71 65.26 67.82
+## [2,] 11.18 13.01 14.84
+## [3,] -0.18 -0.06  0.07</code></pre>
+<pre class="r"><code>round(cbind(gyearly$mle - 1.96*gyearly$se, gyearly$mle, gyearly$mle + 1.96*gyearly$se),2)</code></pre>
+<pre><code>##       [,1]  [,2]  [,3]
+## [1,] 82.17 88.15 94.14
+## [2,]  8.06 12.32 16.58
+## [3,] -0.49 -0.15  0.20</code></pre>
+<pre class="r"><code># Light-tailed, in the Gumbel domain of attraction</code></pre>
+<ol start="5" style="list-style-type: lower-alpha">
+<li>Using the function <code>gum.fit</code>, estimate the parameters of
+a GEV distribution with <span class="math inline">\(\xi = 0\)</span>.
 Decide whether such a model suffices based on a likelihood ratio test.
 <em>Reminder: if <span class="math inline">\(L(\xi,\sigma,\mu)\)</span>
 denotes the log-likelihood function, then <span class="math inline">\(2
 \left\{L(\xi,\sigma,\mu) - L(0,\sigma,\mu)\right\} \rightarrow
-\chi^2_1\)</span>.</em></p></li>
-<li><p>The return-level plot returned by <code>gum.diag</code> is not
-very clear. Using the formula seen this morning (slide 20), calculate
-the 10-year and the 1000-year return levels. Confidence intervals can be
+\chi^2_1\)</span>.</em></li>
+</ol>
+<pre class="r"><code>gummonthly &lt;- gum.fit(monthly, show = FALSE)
+gumyearly &lt;- gum.fit(yearly, show = FALSE)
+gum.diag(gummonthly)</code></pre>
+<pre class="r"><code>gum.diag(gumyearly)</code></pre>
+<pre class="r"><code>(Dmonthly &lt;- 2*(gummonthly$nllh - gmonthly$nllh))</code></pre>
+<pre><code>## [1] 0.7391278</code></pre>
+<pre class="r"><code>(Dyearly &lt;- 2*(gumyearly$nllh - gyearly$nllh))</code></pre>
+<pre><code>## [1] 0.6194026</code></pre>
+<pre class="r"><code>qchisq(0.95, df = 1)</code></pre>
+<pre><code>## [1] 3.841459</code></pre>
+<ol start="6" style="list-style-type: lower-alpha">
+<li>The return-level plot returned by <code>gum.diag</code> is not very
+clear. Using the formula seen this morning (slide 20), calculate the
+10-year and the 1000-year return levels. Confidence intervals can be
 obtained using the delta method: if <span class="math inline">\(\xi =
 0\)</span>, <span class="math inline">\(\nabla x_p^T = (1, -
 \log(-\log(1-p)))\)</span>, and the covariance matrix of <span class="math inline">\((\hat{\mu},\hat{\sigma})\)</span> can be obtained
 from the output of <code>gum.fit</code>. Is there a big difference
 between the 10-year and the 1000-year return levels? Is this
-surprising?</p></li>
-<li><p>Fit a GP distribution to the daily maximal speeds of wind gusts
-that exceed 60 km/h and check the goodness-of-fit plots. You’ll need to
-use the functions <code>gpd.fit</code> and
-<code>gpd.diag</code>.</p></li>
-<li><p>Use the functions <code>gpd.fitrange</code> and
+surprising?</li>
+</ol>
+<pre class="r"><code>retLevGum &lt;- function(pars, cov, p){
+  rl &lt;- pars[1] - pars[2]*log(-log(1-p))
+  grd &lt;- c(1, -log(-log(1-p)))
+  se &lt;- sqrt(t(grd) %*% cov %*% grd)
+  return(c(rl - 1.96*se, rl, rl + 1.96*se))
+}
+retLevGum(gummonthly$mle, gummonthly$cov, (1/10)/6) #convert to yearly</code></pre>
+<pre><code>## [1] 109.0606 117.1775 125.2943</code></pre>
+<pre class="r"><code>retLevGum(gummonthly$mle, gummonthly$cov, (1/1000)/6) #convert to yearly</code></pre>
+<pre><code>## [1] 160.3162 176.2404 192.1645</code></pre>
+<pre class="r"><code>retLevGum(gumyearly$mle, gumyearly$cov, 1/10)</code></pre>
+<pre><code>## [1] 102.2971 113.9311 125.5652</code></pre>
+<pre class="r"><code>retLevGum(gumyearly$mle, gumyearly$cov, 1/1000)</code></pre>
+<pre><code>## [1] 140.2321 169.2167 198.2013</code></pre>
+<ol start="7" style="list-style-type: lower-alpha">
+<li>Fit a GP distribution to the daily maximal speeds of wind gusts that
+exceed 60 km/h and check the goodness-of-fit plots. You’ll need to use
+the functions <code>gpd.fit</code> and <code>gpd.diag</code>.</li>
+</ol>
+<pre class="r"><code>gp60 &lt;- gpd.fit(data, threshold = 60, show = FALSE)
+gpd.diag(gp60)</code></pre>
+<ol start="8" style="list-style-type: lower-alpha">
+<li>Use the functions <code>gpd.fitrange</code> and
 <code>mrl.plot</code> to decide whether the 60 km/h threshold is
-appropriate: if not, what threshold would you suggest?</p></li>
+appropriate: if not, what threshold would you suggest?</li>
 </ol>
 <p>Next, estimate the probability of a wind gust exceeding 144 km/h (the
 harshest inland wind ever to be measured in the Netherlands, during
 storm Eunice in February 2022) using the semi-parametric model on slide
 36.</p>
+<pre class="r"><code>gpd.fitrange(data, umin = 50, umax = 80, nint = 10, show = FALSE)</code></pre>
+<pre class="r"><code># hard to say based on above plots: slightly higher (70) seems better
+mrl.plot(data, umin = 30, umax = 100)</code></pre>
+<pre class="r"><code># impossible to say something based on the above plot 
+zeta_u &lt;- length(which(data &gt; 70))/length(data)
+gpres &lt;- gpd.fit(data, threshold = 70, show = FALSE)
+xi &lt;- gpres$mle[2]
+alpha &lt;- gpres$mle[1]
+(prob &lt;- zeta_u*(1 + xi*(144-70)/alpha)^(-1/xi))</code></pre>
+<pre><code>## [1] 1.207147e-06</code></pre>
 </div>
 <div id="exercise-2." class="section level2">
 <h2>Exercise 2.</h2>
@@ -426,10 +493,13 @@ volatility.</p>
 <pre class="r"><code>library(ismev)
 data(fremantle)</code></pre>
 <ol style="list-style-type: lower-alpha">
-<li><p>Plot the data. Would a stationary GEV model be
-appropriate?</p></li>
-<li><p>Fit three non-stationary GEV models: for fixed scale and shape,
-try letting the location</p></li>
+<li>Plot the data. Would a stationary GEV model be appropriate?</li>
+</ol>
+<pre class="r"><code>plot(fremantle$Year, fremantle$SeaLevel, ylim = c(1,2))</code></pre>
+<pre class="r"><code># some evidence of non-stationarity</code></pre>
+<ol start="2" style="list-style-type: lower-alpha">
+<li>Fit three non-stationary GEV models: for fixed scale and shape, try
+letting the location</li>
 </ol>
 <ul>
 <li><p>vary linearly with time</p></li>
@@ -438,6 +508,22 @@ try letting the location</p></li>
 index</p></li>
 </ul>
 <p>Which model would you choose?</p>
+<pre class="r"><code>covar &lt;- matrix(ncol = 2, nrow = 86)
+covar[, 2] &lt;- fremantle[, 3] 
+covar[, 1] &lt;- c(1:86)
+M0 &lt;- gev.fit(fremantle$SeaLevel, show = FALSE)
+M1 &lt;- gev.fit(fremantle$SeaLevel, ydat = covar, mul = 1, show = FALSE)
+M2 &lt;- gev.fit(fremantle$SeaLevel, ydat = covar, mul = 2, show = FALSE)
+M3 &lt;- gev.fit(fremantle$SeaLevel, ydat = covar, mul = c(1,2), show = FALSE)
+# AICs:
+2*3+ 2*M0$nllh</code></pre>
+<pre><code>## [1] -81.13326</code></pre>
+<pre class="r"><code>2*4+ 2*M1$nllh</code></pre>
+<pre><code>## [1] -91.57944</code></pre>
+<pre class="r"><code>2*4+ 2*M2$nllh</code></pre>
+<pre><code>## [1] -86.42228</code></pre>
+<pre class="r"><code>2*5+ 2*M3$nllh</code></pre>
+<pre><code>## [1] -97.65139</code></pre>
 </div>
 <div id="exercise-3." class="section level2">
 <h2>Exercise 3.</h2>
@@ -453,9 +539,30 @@ function is <span class="math inline">\(F(x) = 1/\log(x)\)</span> for
 <p>Using blocks of size 100, calculate the block maxima for each of the
 samples (leading to 20, 200, and 1000 block maxima respectively) and fit
 a GEV distribution (if possible!). Are these two distributions in the
-max-domain of attraction of a GEV? If yes, with what shape parameter?
-<em>You’ll need to use the functions <code>gev.fit</code> and
-<code>gev.diag</code>.</em></p>
+max-domain of attraction of a GEV? If yes, with what shape
+parameter?</p>
+<pre class="r"><code>library(ismev)
+set.seed(1)
+sample &lt;- 1/rgamma(n = 100000, shape = 3, rate = 1)
+maxima &lt;- apply(matrix(sample, nrow = 100), 2, max)
+gfit1 &lt;- gev.fit(maxima[1:20], show = FALSE)
+gfit2 &lt;- gev.fit(maxima[1:200], show = FALSE)
+gfit3 &lt;- gev.fit(maxima, show = FALSE)
+gev.diag(gfit1)</code></pre>
+<pre class="r"><code>gev.diag(gfit2)</code></pre>
+<pre class="r"><code>gev.diag(gfit3)</code></pre>
+<pre class="r"><code>gfit1$mle</code></pre>
+<pre><code>## [1] 2.2337537 0.5849453 0.4462718</code></pre>
+<pre class="r"><code>gfit2$mle</code></pre>
+<pre><code>## [1] 2.191086 0.820968 0.413875</code></pre>
+<pre class="r"><code>gfit3$mle</code></pre>
+<pre><code>## [1] 2.2780350 0.8601010 0.3348836</code></pre>
+<pre class="r"><code>set.seed(1)
+sample &lt;- exp(1/runif(n = 100000, min = 0, max= 1))
+summary(sample)</code></pre>
+<pre><code>##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##   2.718   3.788   7.391     Inf  56.447     Inf</code></pre>
+<pre class="r"><code># too heavy-tailed! </code></pre>
 </div>
 
 
