@@ -273,6 +273,8 @@ fitmaxstab(data = -1/log(pobs(as.matrix(Temp[,location.IDs]))),
 
 
 ```{r}
+location.IDs <- c(1,54)
+require(SpatialExtremes)
 fitmaxstab(data = as.matrix(Temp[,location.IDs]),
            coord = as.matrix(TempCoord[location.IDs,]),
            cov.mod = "gauss",
@@ -286,6 +288,35 @@ library(mev)
 t(apply(Temp[,location.IDs], 2, function(x) fit.gev(x)$estimate))
 ```
 
+## parametric
+
+```{r}
+library(evd)
+load("Temp.RData")
+res.fbvevd <- fbvevd(x = Temp[,c(1,20)], model = "log")
+res.fbvevd
+```
+
+```{r}
+res.fbvevd.HR <- fbvevd(x = Temp[,c(1,54)], model = "hr")
+res.fbvevd.HR
+```
+
+```{r}
+res.fbvevd.log <- fbvevd(x = Temp[,c(1,54)], model = "log")
+res.fbvevd.log
+```
+
+```{r}
+res.fbvevd.alog <- fbvevd(x = Temp[,c(1,54)], start = as.list(c(asy1=1,asy2=1,dep=0.54711)), model = "alog")
+res.fbvevd.alog
+```
+
+```{r}
+library(ismev)
+gev.fit(Temp[,1])
+gev.fit(Temp[,20])
+```
 
 ## Maximum pseudo-likelihood
 

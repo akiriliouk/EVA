@@ -2,53 +2,394 @@
 title: 'Exercise session 2: multivariate extremes'
 author: "Anna Kiriliouk and Johan Segers"
 date: "UCLouvain, October 2024"
-output: html_document
+output:
+  pdf_document:
+    number_sections: true
+  html_document:
+    df_print: paged
 header-includes:
-  - \usepackage[utf8]{inputenc}
-  - \usepackage{bm}
-  - \newcommand{\rbr}[1]{\left(#1\right)}
-  - \newcommand{\cbr}[1]{\left\{#1\right\}}
-  - \newcommand{\pr}{\operatorname{\mathsf{P}}}
-  - \newcommand{\expec}{\operatorname{\mathsf{E}}}
-  - \newcommand{\sig}{\sigma}
-  - \newcommand{\evi}{\xi}
-  - \newcommand{\bevi}{\bm{\evi}}
-  - \newcommand{\stdf}{L}%{\ell}
-  - \newcommand{\Pick}{A}
-  - \newcommand{\exCoef}{\theta}
-  - \newcommand{\expms}{\Lambda}
-  - \newcommand{\angms}{\varPhi}
-  - \newcommand{\angmspdf}{\phi}
-  - \newcommand{\hstdf}{\widehat{\stdf}}
-  - \newcommand{\hangms}{\widehat{\angms}}
-  - \newcommand{\hbP}{\widehat{\bP}}
-  - \newcommand{\hP}{\widehat{P}}
-  - \newcommand{\hR}{\widehat{R}}
-  - \newcommand{\hF}{\widehat{F}}
-  - \newcommand{\hFj}{\widehat{F}_{j}}
-  - \newcommand{\rank}{\operatorname{Rnk}}
-  - \newcommand{\hU}{\widehat{U}}
-  - \newcommand{\hpr}{\widehat{\pr}}
+- \usepackage[utf8]{inputenc}
+- \usepackage{bm}
+- \newcommand{\rbr}[1]{\left(#1\right)}
+- \newcommand{\cbr}[1]{\left\{#1\right\}}
+- \newcommand{\pr}{\operatorname{\mathsf{P}}}
+- \newcommand{\expec}{\operatorname{\mathsf{E}}}
+- \newcommand{\sig}{\sigma}
+- \newcommand{\evi}{\xi}
+- \newcommand{\bevi}{\bm{\evi}}
+- \newcommand{\stdf}{L}%{\ell}
+- \newcommand{\Pick}{A}
+- \newcommand{\exCoef}{\theta}
+- \newcommand{\expms}{\Lambda}
+- \newcommand{\angms}{\varPhi}
+- \newcommand{\angmspdf}{\phi}
+- \newcommand{\hstdf}{\widehat{\stdf}}
+- \newcommand{\hangms}{\widehat{\angms}}
+- \newcommand{\hbP}{\widehat{\bP}}
+- \newcommand{\hP}{\widehat{P}}
+- \newcommand{\hR}{\widehat{R}}
+- \newcommand{\hF}{\widehat{F}}
+- \newcommand{\hFj}{\widehat{F}_{j}}
+- \newcommand{\rank}{\operatorname{Rnk}}
+- \newcommand{\hU}{\widehat{U}}
+- \newcommand{\hpr}{\widehat{\pr}}
+- \newcommand{\Pidf}{A}
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE, fig.show='hide', results = 'hide', message = FALSE)
 ```
 
-```{r packages, message=FALSE}
-library(mev)
+To be installed: `copula`, `evd`, `ismev`, `maps`. You can install a package by `install.packages("copula")` etc. 
+
+```{r packages, message=FALSE, echo = TRUE}
 library(ismev)
 library(copula)
-library(ExtremalDep)
-library(evd)
-library(graphicalExtremes)
-library(extremis)
-library(SpatialExtremes)
+library(evd) 
+library(maps)
 ```
 
-```{r data}
-#load("Wind.RData")
+
+<!-- # High temperatures in Belgium -->
+
+The data consist of annual maxima of daily maximum temperatures for the years 1950--2018 for $d = 54$ grid points in Belgium. Derived from the homogenized E-OBS dataset E-OBS v19.0eHOM data, made available in the supplementary material of Auld et al. (2023).
+
+The aim is to estimate **joint probabilities** of high annual temperatures
+
+- at multiple locations _simultaneously_ (AND),
+
+- at _at least_ one location (OR).
+
+We will compare various estimates:
+
+1. the empirical probability
+
+2. by applying univariate extreme-value theory (EVT) to the maximum of maxima
+
+3. by combining a non-parametric estimate of the Pickands dependence function with parametric GEV margins
+
+4.  by fitting a max-stable distribution to the vector of component-wise maxima
+<!-- 
+- non-parametric estimate of the Pickands dependence function
+- parametric estimate, via a two-stage procedure
+- margins estimated via fitting univariate generalized extreme-value (GEV) distributions
+- margins estimated via the empirical cumulative distribution function (cdf)
+ -->
+
+# Warm-up: the data
+
+We load the data and ensure that the temperature data object is of class `data.frame`.
+
+```{r, echo = TRUE}
 load("Temp.RData")
-#load("Ex1uni.RData")
 Temp <- as.data.frame(Temp)
 ```
+
+This loads three objects: an $(n \times d)$ matrix of observations, a $(d \times 2)$ matrix of coordinates and a vector of years.
+
+Let's plot the locations:
+```{r, echo = TRUE}
+map("world", xlim = c(2,6.5), ylim = c(49,51.5)) 
+points(TempCoord, col = "red")
+```
+
+For simplicity, we'll select three locations, in the neighbourhood of Middelkerke, Louvain-la-Neuve, and Virton:
+
+```{r Temp.locations, echo = TRUE}
+cities <- as.data.frame(rbind(
+  c("Middelkerke", 1),
+  c("LLN", 30),
+  c("Virton", 54)
+))
+names(cities) <- c("name", "ID")
+cities$ID <- as.integer(cities$ID)
+M <- Temp[,cities$ID]
+names(M) <- cities$name
+map("world", xlim = c(2,6.5), ylim = c(49,51.5)) 
+points(TempCoord[cities$ID,], col = "red")
+text(TempCoord[cities$ID,], col = "red", labels = cities$name, pos = 3)
+```
+
+**Make a scatterplot displaying all three pairs of stations.** 
+<!---Use the function `plot()`, after coercing the data matrix to be of class `data.frame` with the function `as.data.frame()`.**
+ -->
+ 
+```{r}
+plot(M)
+```
+
+**Compute some summary statistics of the data, such as the range of the annual maxima.**
+
+```{r}
+summary(M)
+```
+
+# Empirical probability
+
+We are interested in probabilities of the type
+\begin{align*}
+  &\pr(M_i > u_i \text{ and } M_j > u_j) &
+  &\pr(M_1 > u_1 \text{ and } M_2 > u_2 \text{ and } M_3 > u_3) \\
+  &\pr(M_i > u_i \text{ or } M_j > u_j) &
+  &\pr(M_1 > u_1 \text{ or } M_2 > u_2 \text{ or } M_3 > u_3)
+\end{align*}
+
+**Estimate the above probabilities for $u_1 = u_2 = u_3 = 35^\circ$ by the empirical probabilities**, that is, the frequency of the events in the sample. In R, the logical operators are `&` (AND) and `|` (OR).
+
+```{r}
+# Here and below, it's certainly possible to write more elegant and general code, using loops etc.
+u <- 35
+
+mean((M[,1] > u) & (M[,2] > u))
+mean((M[,1] > u) & (M[,3] > u))
+mean((M[,2] > u) & (M[,3] > u))
+
+mean((M[,1] > u) | (M[,2] > u))
+mean((M[,1] > u) | (M[,3] > u))
+mean((M[,2] > u) | (M[,3] > u))
+
+mean((M[,1] > u) & (M[,2] > u) & (M[,3] > u)) 
+mean((M[,1] > u) | (M[,2] > u) | (M[,3] > u)) 
+```
+
+# Univariate EVT applied to the maximum of the maxima
+
+**For each year, extract the maximum of the maxima at two or three locations.** Use the function `pmax()`. For our three cities, this gives four series of maxima (three pairs and one triple).
+
+```{r}
+M12 <- pmax(M[,1], M[,2])
+M13 <- pmax(M[,1], M[,3])
+M23 <- pmax(M[,2], M[,3])
+
+M123 <- pmax(M[,1], M[,2], M[,3])
+```
+
+**Fit a univariate GEV distribution to each of the series, by the function `gev.fit()` in `ismev`.**
+
+```{r}
+gev12 <- gev.fit(M12, show = FALSE)$mle
+gev13 <- gev.fit(M13, show = FALSE)$mle
+gev23 <- gev.fit(M23, show = FALSE)$mle
+gev123 <- gev.fit(M123, show = FALSE)$mle
+```
+
+For the OR version, calculate the probabilities by the GEV fit. To do so, use
+\[
+  \pr(M_i > u \text{ or } M_j > u) = \pr[\max(M_i, M_j) > u].
+\]
+The GEV cumulative distribution function is implemented in `pgev()` of the package `evd`.
+
+```{r}
+(p.or.12 <- pgev(q = u, loc = gev12[1], scale = gev12[2], shape = gev12[3], lower.tail = FALSE))
+(p.or.13 <- pgev(q = u, loc = gev13[1], scale = gev13[2], shape = gev13[3], lower.tail = FALSE))
+(p.or.23 <- pgev(q = u, loc = gev23[1], scale = gev23[2], shape = gev23[3], lower.tail = FALSE))
+(p.or.123 <- pgev(q = u, loc = gev123[1], scale = gev123[2], shape = gev123[3], lower.tail = FALSE))
+```
+
+For the AND version, use the additive law:
+\[
+  \pr(M_i > u \text{ and } M_j > u) 
+  = \pr(M_i > u) + \pr(M_j > u) - \pr(M_i > i \text{ or } M_j > j)
+\]
+(Bonus theory question: how would you extend the formula for three locations? For $m$ locations?)
+
+The individual probabilities $\pr(M_i > u)$ can also be estimated by fitting a univariate GEV.
+
+```{r}
+gev1 <- gev.fit(M[,1], show = FALSE)$mle
+gev2 <- gev.fit(M[,2], show = FALSE)$mle
+gev3 <- gev.fit(M[,3], show = FALSE)$mle
+
+(p1 <- pgev(q = u, loc = gev1[1], scale = gev1[2], shape = gev1[3], lower.tail = FALSE))
+(p2 <- pgev(q = u, loc = gev2[1], scale = gev2[2], shape = gev2[3], lower.tail = FALSE))
+(p3 <- pgev(q = u, loc = gev3[1], scale = gev3[2], shape = gev3[3], lower.tail = FALSE))
+
+(p.and.12 <- p1 + p2 - p.or.12)
+(p.and.13 <- p1 + p3 - p.or.13)
+(p.and.23 <- p2 + p3 - p.or.23)
+```
+
+
+# Nonparametric estimation of a max-stable distribution
+
+We will estimate the Pickands dependence function non-parametrically and then combine the estimated dependence structure with the parametric GEV margins to estimate the multivariate excess probabilities. For simplicity, we will limit ourselves to the bivariate case.
+
+## Estimation and visualization of the Pickands dependence function
+
+**For each of the three pairs of cities, make a graph of the Capéraà-Fougères-Genest estimator $\hat{\Pidf}$ of the Pickands dependence function $\Pidf$.**
+
+Use the function `An.biv()` of the package `copula` to compute the estimate and use `curve` to make the plot. 
+
+**For each pair, also compute an estimate of the dependence coefficient $\chi$.** To do so, put
+\[
+  \hat{\chi} = 2 \cbr{1 - \hat{\Pidf}(0.5)}.
+\]
+Optionally: visualize $\hat{\chi}$ on the plot of $\hat{\Pidf}$. 
+
+**Interpret the value of $\hat{\chi}$ in terms of the locations of the cities.**
+
+
+```{r}
+for (i in (1:2)) {
+  for (j in (i+1):3) {
+    curve(An.biv(M[,c(i,j)], x, estimator = "CFG"),
+          xlab = "w", ylab = "A(w)",
+          main = paste("Pickands dependence function A,", 
+                       cities$name[i], "vs", cities$name[j]),
+          ylim = c(0.5,1),
+          col = "blue", lwd = 2)
+    lines(c(0, 0.5, 1), c(1,0.5,1), col = "gray")
+    lines(c(0,1),c(1,1), col = "gray")
+    Ahalf <- An.biv(M[,c(i,j)], w=0.5)
+    lines(c(0.5,0.5), c(1, Ahalf), lty = "dotted", lwd = 2)
+    text(x = 0.5, y = (Ahalf+1)/2, 
+         labels = paste("chi = 2{1-A(.5)} =", round(2*(1-Ahalf),3)),
+         pos = 4
+         )
+  }
+}
+```
+
+
+## Estimation of the joint excess probability 
+
+For a bivariate max-stable distribution function $G$ with margins $G_1$ and $G_2$ and Pickands dependence function $\Pidf$, we have
+\[
+  G(x_1,x_2) = (u_1u_2)^{\Pidf(w)},
+  \qquad
+  \left\{
+    \begin{array}{@{}r@{\;=\;}l}
+      u_1 & G_1(x_1) \\
+      u_2 & G_2(x_2) \\
+      w & \log(u_2) / \log(u_1 u_2)
+    \end{array}
+  \right.
+\]
+**For a pair of cities of your choice, combine the estimates of the marginal (non-)excess probabilities and the estimate of the Pickands dependence function to obtain the required excess probabilities.** 
+
+Note that, for the pair $(i, j)$, say, we have
+\begin{align*}
+  \pr(M_i > x \text{ or } M_j > x) 
+  &= 1 - G_{ij}(x,x) \\
+  \pr(M_i > x \text{ and } M_j > x) 
+  &= \pr(M_i > x) + \pr(M_j > x) - \pr(M_i > x \text{ or } M_j > x).
+\end{align*}
+
+```{r}
+(G1 <- pgev(q = u, loc = gev1[1], scale = gev1[2], shape = gev1[3], lower.tail = TRUE))
+(G2 <- pgev(q = u, loc = gev2[1], scale = gev2[2], shape = gev2[3], lower.tail = TRUE))
+(G3 <- pgev(q = u, loc = gev3[1], scale = gev3[2], shape = gev3[3], lower.tail = TRUE))
+
+(A12 <- An.biv(x = M[,c(1,2)], w = log(G2)/log(G1*G2), estimator = "CFG"))
+(p.or.12.Pick <- 1-(G1*G2)^A12)
+(p.and.12.Pick <- p1+p2-p.or.12.Pick)
+
+(A13 <- An.biv(x = M[,c(1,3)], w = log(G3)/log(G1*G3), estimator = "CFG"))
+(p.or.13.Pick <- 1-(G1*G3)^A13)
+(p.and.13.Pick <- p1+p3-p.or.13.Pick)
+
+(A23 <- An.biv(x = M[,c(2,3)], w = log(G3)/log(G2*G3), estimator = "CFG"))
+(p.or.23.Pick <- 1-(G2*G3)^A23)
+(p.and.23.Pick <- p2+p3-p.or.23.Pick)
+```
+
+Finally, compare the probabilities with the one of the previous approaches.
+
+
+# Parametric modelling of a max-stable distribution 
+
+Now let's assume a parametric family for the bivariate GEV distribution. We will first estimate the parameters by maximum likelihood and then compute the multivariate excess probabilities of interest in the fitted parametric model.
+
+For the _marginal_ GEV parameters, we have two choices:
+
+- estimate the parameters jointly with the dependence parameter;
+
+- use a two-stage procedure: in a first stage, we fit the marginal GEV parameters separately to each margin; in a second stage, we fix the marginal parameters and estimate the dependence parameter.
+
+(A third option would be to use the pseudo-likelihood procedure, estimating the margins nonparametrically with the empirical cdf.)
+
+For the parametric estimate, we will use the function `fbvevd()` from the package `evd`. To evaluate probabilities under the fitted model, use the function `pmvevd()` from the same package; alternatively, use the function `pCopula()` from the `copula` package, knowing that the logistic model in EVT is actually the same as the Gumbel copula. Recall that the link between a bivariate cdf $G$ and its margins $G_1, G_2$ is given by
+\[
+  G(x_1,x_2) = C \rbr{G_1(x_1), G_2(x_2)},
+\]
+where $C$ is the copula of $G$.
+
+## Joint parameter estimation
+
+**Fit the bivariate GEV with the logistic dependence model, estimating all parameters jointly.**
+
+```{r}
+res12 <- fbvevd(x = M[,c(1,2)], model = "log")$estimate
+```
+
+**Estimate the probabilities $\pr(M_i > u)$, $\pr(M_j > u)$, $\pr(M_i > u \text{ or } M_j > u)$ and $\pr(M_i > u \text{ and } M_j > u)$.** Use the functions `pgev()` for the marginal ones and `pmvevd()` for the bivariate joint distribution function $\pr(M_i \le u \text{ and } M_j \le u)$.
+
+```{r}
+(G1 <- pgev(q = u, loc = res12[1], scale = res12[2], shape = res12[3]))
+(G2 <- pgev(q = u, loc = res12[4], scale = res12[5], shape = res12[6]))
+(G12 <- pmvevd(q = c(u, u),
+               dep = res12[7],
+               d = 2,
+               mar = list(res12[1:3], res12[4:6]),
+               model = "log"))
+(p.or.12.log <- 1-G12)
+(p1 <- 1-G1)
+(p2 <- 1-G2)
+(p.and.12.log <- p1+p2-p.or.12.log)
+```
+
+## Two-stage estimation procedure
+
+Now do the same, but using the two-stage procedure. 
+
+**Estimate the marginal parameters by the `gev.fit()` procedure from the `evd` package.**
+
+```{r}
+(gev.par1 <- gev.fit(M[,1], show = FALSE)$mle)
+(gev.par2 <- gev.fit(M[,2], show = FALSE)$mle)
+```
+
+**Estimate the dependence parameter by `fbvevd()`, fixing the marginal parameters.**
+
+```{r}
+res12 <- fbvevd(x = M[,c(1,2)],
+                loc1 = gev.par1[1],
+                scale1 = gev.par1[2],
+                shape1 = gev.par1[3],
+                loc2 = gev.par2[1],
+                scale2 = gev.par2[2],
+                shape2 = gev.par2[3],
+                model = "log")$estimate
+```
+
+**Estimate the probabilities $\pr(M_i > u)$, $\pr(M_j > u)$, $\pr(M_i > u \text{ or } M_j > u)$ and $\pr(M_i > u \text{ and } M_j > u)$.**
+
+```{r}
+(G1 <- pgev(q = u, loc = gev.par1[1], scale = gev.par1[2], shape = gev.par1[3]))
+(G2 <- pgev(q = u, loc = gev.par2[1], scale = gev.par2[2], shape = gev.par2[3]))
+(G12 <- pmvevd(q = c(u, u),
+               dep = res12,
+               d = 2,
+               mar = list(gev.par1, gev.par2),
+               model = "log"))
+
+(p.or.12.log <- 1-G12)
+(p1 <- 1-G1)
+(p2 <- 1-G2)
+(p.and.12.log <- p1+p2-p.or.12.log)
+``` 
+
+Optionally: **Fit the bivariate GEV with the Hüsler—Reiss dependence model.** To calculate the bivariate GEV, use the function `pcopula()` from the `copula` package. Among the two models, which one would you prefer? (Hint: inspect the value of the AIC.)
+
+
+<!--
+# Exercise 2: Rain in Switzerland
+
+Aim: estimate probability that aggregated rainfall over 3 or 4 stations is large.
+
+1. check asymptotic dependence via empirical $\chi$ as a function of $k$; should not lie close to $0$
+2. structure variable approach: add up, apply univariate EVT
+3. use result about multivariate GPD
+  - check shape parameters more or less the same
+  - 
+-->
