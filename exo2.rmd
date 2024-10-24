@@ -1,0 +1,54 @@
+---
+title: 'Exercise session 2: multivariate extremes'
+author: "Anna Kiriliouk and Johan Segers"
+date: "UCLouvain, October 2024"
+output: html_document
+header-includes:
+  - \usepackage[utf8]{inputenc}
+  - \usepackage{bm}
+  - \newcommand{\rbr}[1]{\left(#1\right)}
+  - \newcommand{\cbr}[1]{\left\{#1\right\}}
+  - \newcommand{\pr}{\operatorname{\mathsf{P}}}
+  - \newcommand{\expec}{\operatorname{\mathsf{E}}}
+  - \newcommand{\sig}{\sigma}
+  - \newcommand{\evi}{\xi}
+  - \newcommand{\bevi}{\bm{\evi}}
+  - \newcommand{\stdf}{L}%{\ell}
+  - \newcommand{\Pick}{A}
+  - \newcommand{\exCoef}{\theta}
+  - \newcommand{\expms}{\Lambda}
+  - \newcommand{\angms}{\varPhi}
+  - \newcommand{\angmspdf}{\phi}
+  - \newcommand{\hstdf}{\widehat{\stdf}}
+  - \newcommand{\hangms}{\widehat{\angms}}
+  - \newcommand{\hbP}{\widehat{\bP}}
+  - \newcommand{\hP}{\widehat{P}}
+  - \newcommand{\hR}{\widehat{R}}
+  - \newcommand{\hF}{\widehat{F}}
+  - \newcommand{\hFj}{\widehat{F}_{j}}
+  - \newcommand{\rank}{\operatorname{Rnk}}
+  - \newcommand{\hU}{\widehat{U}}
+  - \newcommand{\hpr}{\widehat{\pr}}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r packages, message=FALSE}
+library(mev)
+library(ismev)
+library(copula)
+library(ExtremalDep)
+library(evd)
+library(graphicalExtremes)
+library(extremis)
+library(SpatialExtremes)
+```
+
+```{r data}
+#load("Wind.RData")
+load("Temp.RData")
+#load("Ex1uni.RData")
+Temp <- as.data.frame(Temp)
+```

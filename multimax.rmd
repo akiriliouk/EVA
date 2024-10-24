@@ -235,7 +235,59 @@ testoutA
 
 Other tests implemented in `copula` package: `evTestK` and `evTestC`.
 
-## Parameter estimation
+# Parameter estimation
+
+## Composite likelihood
+
+Function `ExtremalDep::fExtDep()`. Not sure what it does, how margins are taken into account...
+
+```{r}
+library(ExtremalDep)
+fExtDep(method="Composite", data = as.matrix(Temp[, c(1,2,3)]), model = "HR", par.start = c(1,1,1))
+```
+
+```{r}
+Temp.pobsFr <- - 1 / log(pobs(Temp))
+fExtDep(method="Composite", data = as.matrix(Temp.pobsFr[, c(1,2,3)]), model = "HR", par.start = c(1,1,1))
+```
+
+Function `SpatialExtremes::fitmaxstab()`: R session crashes...
+
+```{r}
+#fitmaxstab(data = as.matrix(Temp[,c(1,20,30,54)]),
+#           coord = as.matrix(TempCoord[c(1,20,30,54),]),
+#           cov.mod = "gauss",
+#           fit.marge = TRUE)
+```
+
+```{r}
+library(SpatialExtremes)
+library(copula)
+load("Temp.RData")
+location.IDs <- c(1,20,54)
+fitmaxstab(data = -1/log(pobs(as.matrix(Temp[,location.IDs]))),
+           coord = as.matrix(TempCoord[location.IDs,]),
+           cov.mod = "gauss",
+           fit.marge = FALSE)$fitted.values
+```
+
+
+```{r}
+fitmaxstab(data = as.matrix(Temp[,location.IDs]),
+           coord = as.matrix(TempCoord[location.IDs,]),
+           cov.mod = "gauss",
+           fit.marge = TRUE)$fitted.values
+```
+
+Compare multivariate fit with three univariate fits:
+
+```{r}
+library(mev)
+t(apply(Temp[,location.IDs], 2, function(x) fit.gev(x)$estimate))
+```
+
+
+## Maximum pseudo-likelihood
 
 Fitting a Gumbel copula (= logistic model) by maximum pseudo-likelihood, using ranks, and comparing the obtained Pickands dependence functions:
 
