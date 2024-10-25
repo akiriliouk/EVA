@@ -15,7 +15,7 @@ header-includes:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, fig.show='hide')
+knitr::opts_chunk$set(echo = TRUE)
 ```
 
 You'll need to install and load the `ismev` package first using `install.packages("ismev")` and `library(ismev)`.
@@ -45,7 +45,7 @@ b. Plot the two datasets. Do they look stationary?
 ```{r}
 plot(monthly, ylim = c(35,130))
 plot(yearly, ylim = c(35,130))
-# The data looks stationary.
+# The data looks more or less stationary.
 ```
 
 c. Fit a GEV distribution to both the monthly and the yearly maxima and check the goodness-of-fit plots. You'll need to use the functions `gev.fit` and `gev.diag`. Would you choose to continue with the monthly or the yearly maxima?
@@ -55,7 +55,8 @@ gmonthly <- gev.fit(monthly, show = FALSE)
 gyearly <- gev.fit(yearly, show = FALSE)
 gev.diag(gmonthly)
 gev.diag(gyearly)
-# I would go with the monthly maxima: the fit seems satisfactory and confidence intervals would be narrower. 
+# I would go with the monthly maxima: the fit seems satisfactory 
+# and confidence intervals will be narrower. 
 ```
 
 d. For the chosen data (monthly or weekly), give the GEV parameter estimates with 95 \% confidence intervals. Is the data bounded-tailed, light-tailed or heavy-tailed? 
@@ -74,7 +75,10 @@ gum.diag(gummonthly)
 gum.diag(gumyearly)
 (Dmonthly <- 2*(gummonthly$nllh - gmonthly$nllh))
 (Dyearly <- 2*(gumyearly$nllh - gyearly$nllh))
-qchisq(0.95, df = 1)
+qchisq(0.95, df = 1) 
+1 - pchisq(Dmonthly, df =1)
+1 - pchisq(Dyearly, df =1)
+# cannot reject the Gumbel model
 ```
 
 f. The return-level plot returned by `gum.diag` is not very clear. Using the formula seen this morning (slide 20),
@@ -105,9 +109,9 @@ h. Use the functions `gpd.fitrange` and `mrl.plot` to decide whether the 60 km/h
 Next, estimate the probability of a wind gust exceeding 144 km/h (the harshest inland wind ever to be measured in the Netherlands, during storm Eunice in February 2022) using the semi-parametric model on slide 36. 
 ```{r}
 gpd.fitrange(data, umin = 50, umax = 80, nint = 10, show = FALSE)
-# hard to say based on above plots: slightly higher (70) seems better
+# hard to say based on above plots: slightly higher (70) may be better
 mrl.plot(data, umin = 30, umax = 100)
-# impossible to say something based on the above plot 
+# impossible to say something based on the mrl plot
 zeta_u <- length(which(data > 70))/length(data)
 gpres <- gpd.fit(data, threshold = 70, show = FALSE)
 xi <- gpres$mle[2]
@@ -153,9 +157,11 @@ M3 <- gev.fit(fremantle$SeaLevel, ydat = covar, mul = c(1,2), show = FALSE)
 2*4+ 2*M1$nllh
 2*4+ 2*M2$nllh
 2*5+ 2*M3$nllh
+# Including both time and the SOI gives the best model
 ```
 
 ## Exercise 3.
+
 
 Simulate samples of size $n \in \{2000, 20000, 100000\}$ from the following two distributions:
 
@@ -178,9 +184,11 @@ gev.diag(gfit3)
 gfit1$mle
 gfit2$mle
 gfit3$mle
+# It seems that the inverse gamma distribution with shape parameter alpha
+# is in the max domain of attraction of a GEV with shape 1/alpha
 
 set.seed(1)
 sample <- exp(1/runif(n = 100000, min = 0, max= 1))
 summary(sample)
-# too heavy-tailed! 
+# too heavy-tailed to even fit a GEV
 ```

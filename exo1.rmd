@@ -40,7 +40,7 @@ monthly <- as.vector(tapply(data, paste(times$year,times$mon), max))
 yearly <- apply(matrix(monthly,ncol = 21, nrow = 6), 2, max)
 ```
 
-b. Plot the two datasets. Do they look stationary?
+b. Plot the the monthly and yearly maxima. Do they look stationary?
 
 ```{r}
 plot(monthly, ylim = c(35,130))
@@ -77,7 +77,7 @@ gum.diag(gumyearly)
 qchisq(0.95, df = 1)
 ```
 
-f. The return-level plot returned by `gum.diag` is not very clear. Using the formula seen this morning (slide 20),
+f. It is complicated to read a return level from the plot returned by `gum.diag`. Using the formula seen this morning (slide 20),
 calculate the 10-year and the 1000-year return levels. Confidence intervals can be obtained using the delta method: if $\xi = 0$, $\nabla x_p^T = (1, - \log(-\log(1-p)))$, and the covariance matrix of $(\hat{\mu},\hat{\sigma})$ can be obtained from the output of `gum.fit`. Is there a big difference between the 10-year and the 1000-year return levels? Is this surprising?
 
 ```{r}
@@ -100,9 +100,7 @@ gp60 <- gpd.fit(data, threshold = 60, show = FALSE)
 gpd.diag(gp60)
 ```
 
-h. Use the functions `gpd.fitrange` and `mrl.plot` to decide whether the 60 km/h threshold is appropriate: if not, what threshold would you suggest? 
-
-Next, estimate the probability of a wind gust exceeding 144 km/h (the harshest inland wind ever to be measured in the Netherlands, during storm Eunice in February 2022) using the semi-parametric model on slide 36. 
+h. Use the functions `gpd.fitrange` and `mrl.plot` to decide whether the 60 km/h threshold is appropriate: if not, what threshold would you suggest? Next, estimate the probability of a wind gust exceeding 144 km/h (the harshest inland wind ever to be measured in the Netherlands, during storm Eunice in February 2022) using the semi-parametric model on slide 36. 
 ```{r}
 gpd.fitrange(data, umin = 50, umax = 80, nint = 10, show = FALSE)
 # hard to say based on above plots: slightly higher (70) seems better
@@ -139,7 +137,7 @@ b. Fit three non-stationary GEV models: for fixed scale and shape, try letting t
 
 * vary linearly with both time and the southern oscillation index
 
-Which model would you choose?
+Which model would you choose? Do you have any other ideas?
 ```{r message = FALSE}
 covar <- matrix(ncol = 2, nrow = 86)
 covar[, 2] <- fremantle[, 3] 
