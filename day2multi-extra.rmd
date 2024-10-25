@@ -1,0 +1,200 @@
+---
+title: "Multivariate extremes"
+author: "Anna Kiriliouk and Johan Segers"
+date: "UCLouvain and KU Leuven, October 2024"
+output: pdf_document
+header-includes:
+  - \usepackage[utf8]{inputenc}
+  - \usepackage{bm}
+  - \newcommand{\rbr}[1]{\left(#1\right)}
+  - \newcommand{\cbr}[1]{\left\{#1\right\}}
+  - \newcommand{\pr}{\operatorname{\mathsf{P}}}
+  - \newcommand{\expec}{\operatorname{\mathsf{E}}}
+  - \newcommand{\sig}{\sigma}
+  - \newcommand{\evi}{\xi}
+  - \newcommand{\bevi}{\bm{\evi}}
+  - \newcommand{\stdf}{L}%{\ell}
+  - \newcommand{\Pick}{A}
+  - \newcommand{\exCoef}{\theta}
+  - \newcommand{\expms}{\Lambda}
+  - \newcommand{\angms}{\varPhi}
+  - \newcommand{\angmspdf}{\phi}
+  - \newcommand{\hstdf}{\widehat{\stdf}}
+  - \newcommand{\hangms}{\widehat{\angms}}
+  - \newcommand{\hbP}{\widehat{\bP}}
+  - \newcommand{\hP}{\widehat{P}}
+  - \newcommand{\hR}{\widehat{R}}
+  - \newcommand{\hF}{\widehat{F}}
+  - \newcommand{\hFj}{\widehat{F}_{j}}
+  - \newcommand{\rank}{\operatorname{Rnk}}
+  - \newcommand{\hU}{\widehat{U}}
+  - \newcommand{\hpr}{\widehat{\pr}}
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, fig.align="center")
+```
+
+```{r prelim}
+library(mev)
+library(copula) # extreme-value copulas
+library(graphicalExtremes)
+library(maps)
+load("Temp.RData")
+Temp <- as.data.frame(Temp)
+```
+
+ 
+# Temperature data in Belgium
+
+Plotting a map of Belgium with the grid points for which we have temperature data:
+
+```{r, fig.align="center"}
+map("world", xlim = c(2,6.5), ylim = c(49,51.5)) 
+# points(cbind(TempCoord[,"longitude"], TempCoord[,"latitude"]), col = "red")
+text(cbind(TempCoord[,"longitude"], TempCoord[,"latitude"]))
+```
+
+Closest stations:
+
+- Louvain-la-Neuve: around 30
+- Leuven: around 20
+
+
+# Some elementary univariate analysis 
+
+The temperature data are annual maxima, so it makes sense to fit a GEV distribution to them. We do so for every grid point. The number of observations (rows) and number of grid points (columns):
+
+```{r}
+dim(Temp)
+```
+
+Fitting the GEV distribution to the annual temperature maxima in each grid point:
+
+```{r}
+# helper function to apply fit.gev to each column in a data.frame
+fit.gev.vec <- function(data) {
+  t(apply(data, 2, function(x) fit.gev(x)$estimate))
+}
+# fit GEV distribution to each 
+TempGEVestim <- fit.gev.vec(Temp)
+summary(TempGEVestim)
+```
+
+# Four cities in Belgium
+
+```{r Temp.locations, fig.align="center"}
+cities <- as.data.frame(rbind(
+  c("Middelkerke", 1),
+  c("Leuven", 20),
+  c("LLN", 30),
+  c("Virton", 54)
+))
+names(cities) <- c("name", "ID")
+cities$ID <- as.integer(cities$ID)
+TempPart <- Temp[,cities$ID]
+names(TempPart) <- cities$name
+map("world", xlim = c(2,6.5), ylim = c(49,51.5)) 
+text(TempCoord[cities$ID,], col = "red", labels = cities$name)
+```
+
+```{r Tem.scatter, fig.align="center"}
+plot(TempPart, main = "Maximum temperatures in Belgium, 1950—2018")
+```
+
+Fitting univariate GEV distributions to the annual maxima data in each city:
+
+```{r Temp.GEV1}
+Temp.GEV1 <- t(apply(TempPart, 2, function(x) fit.gev(x)$estimate))
+Temp.GEV1
+```
+
+Checking the goodness-of-fit:
+
+```{r fig.align="center"}
+for (city in cities$name) {
+  hist(TempPart[,city], freq = FALSE, 
+     xlab = "Annual maximum temperature", 
+     main = paste("Annual maximum temperatures at", city, "(1950—2014)"))
+  curve(dgev(x, 
+             loc = Temp.GEV1[city, "loc"], 
+             scale = Temp.GEV1[city, "scale"], 
+             shape = Temp.GEV1[city, "shape"]), 
+        add = TRUE, col = "red")
+  legend(x = "topleft", 
+         col = c("black", "red"), 
+         lty = "solid",
+         legend = c("histogram", "GEV"))
+}
+```
+
+# Pickands dependence functions
+
+Nonparametric estimates of the bivariate Pickands dependence functions for each pair of cities:
+
+```{r fig.align="center"}
+for (i in 1:(nrow(cities)-1)) {
+  for (j in (i+1):nrow(cities)) {
+    curve(An.biv(TempPart[,c(i,j)], x, estimator = "CFG"),
+          xlab = "w", ylab = "A(w)",
+          main = paste("Pickands dependence function A,", 
+                       cities$name[i], "vs", cities$name[j]),
+          ylim = c(0.5,1),
+          col = "blue", lwd = 2)
+    lines(c(0, 0.5, 1), c(1,0.5,1), col = "gray")
+    lines(c(0,1),c(1,1), col = "gray")
+    Ahalf <- An.biv(TempPart[,c(i,j)], w=0.5)
+    lines(c(0.5,0.5), c(1, Ahalf), lty = "dotted", lwd = 2)
+    text(x = 0.5, y = (Ahalf+1)/2, 
+         labels = paste("2{1-A(.5)} =", round(2*(1-Ahalf),3)),
+         pos = 4
+         )
+  }
+}
+```
+
+
+# Maximum pseudo-likelihood
+
+Fitting a Gumbel copula (= logistic model) by maximum pseudo-likelihood, using ranks, and comparing the obtained Pickands dependence functions with the nonparametric estimates:
+
+```{r fig.align="center"}
+for (i in 1:(nrow(cities)-1)) {
+  for (j in (i+1):nrow(cities)) {
+    estimtmp <- fitCopula(copula = gumbelCopula(),
+                          data = pobs(TempPart[, c(i,j)]))
+    alpha <- summary(estimtmp)$coefficients[,"Estimate"]
+    
+    curve(An.biv(TempPart[,c(i,j)], x, estimator = "CFG"),
+          xlab = "w", ylab = "A(w)",
+          main = paste("Pickands dependence function A,", 
+                       cities$name[i], "vs", cities$name[j]),
+          ylim = c(0.5,1),
+          col = "blue", lwd = 2)
+    curve(A(gumbelCopula(param = alpha), x), add = TRUE, 
+          col = "red", lwd = 2)
+    lines(c(0, 0.5, 1), c(1,0.5,1), col = "gray")
+    lines(c(0,1),c(1,1), col = "gray")
+    legend(x = "top", lty = "solid", lwd = 2, col = c("blue", "red"),
+           legend = c("nonparametric: CFG", 
+                      paste("parametric: logistic, rho =", round(1/alpha,3))))
+  }
+}
+rm(i,j,estimtmp,alpha)
+```
+
+
+# Parameter estimation
+
+Fitting a parametric bivariate GEV (margins + dependence) to a pair of cities:
+
+```{r}
+library(evd)
+(res.fbvevd.log <- fbvevd(x = Temp[,c(30,54)], model = "log"))
+```
+
+
+```{r}
+(res.fbvevd.HR <- fbvevd(x = Temp[,c(30,54)], model = "hr"))
+```
